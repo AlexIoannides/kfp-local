@@ -1,0 +1,181 @@
+{
+  "components": {
+    "comp-stage-0": {
+      "executorLabel": "exec-stage-0"
+    },
+    "comp-stage-1": {
+      "executorLabel": "exec-stage-1",
+      "inputDefinitions": {
+        "parameters": {
+          "n": {
+            "parameterType": "NUMBER_INTEGER"
+          }
+        }
+      },
+      "outputDefinitions": {
+        "artifacts": {
+          "values": {
+            "artifactType": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        }
+      }
+    },
+    "comp-stage-2": {
+      "executorLabel": "exec-stage-2",
+      "inputDefinitions": {
+        "artifacts": {
+          "values": {
+            "artifactType": {
+              "schemaTitle": "system.Dataset",
+              "schemaVersion": "0.0.1"
+            }
+          }
+        }
+      }
+    }
+  },
+  "defaultPipelineRoot": "gs://object-storage",
+  "deploymentSpec": {
+    "executors": {
+      "exec-stage-0": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "stage_0"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.4.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'numpy' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_0() -> None:\n    \"\"\"Stage 0.\"\"\"\n    from numpy.random import standard_normal\n\n    x = standard_normal(100)\n    print(x.mean())\n\n"
+          ],
+          "image": "python:3.9"
+        }
+      },
+      "exec-stage-1": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "stage_1"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.4.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'numpy' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_1(n: int, values: dsl.Output[dsl.Dataset]) -> None:\n    \"\"\"Stage 1.\"\"\"\n    from numpy.random import standard_normal\n\n    x = standard_normal(n)\n    with open(values.path, \"w\") as file:\n        x.tofile(file)\n\n"
+          ],
+          "image": "python:3.9"
+        }
+      },
+      "exec-stage-2": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "stage_2"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.4.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'numpy' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_2(values: dsl.Input[dsl.Dataset]) -> None:\n    \"\"\"Stage 2.\"\"\"\n    import numpy as np\n\n    x = np.fromfile(values.path)\n    average = x.mean()\n    print(average)\n\n"
+          ],
+          "image": "python:3.9"
+        }
+      }
+    }
+  },
+  "pipelineInfo": {
+    "description": "Train and deploy pipeline definition.",
+    "name": "foo-then-bar"
+  },
+  "root": {
+    "dag": {
+      "tasks": {
+        "stage-0": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-stage-0"
+          },
+          "taskInfo": {
+            "name": "stage-0"
+          }
+        },
+        "stage-1": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-stage-1"
+          },
+          "inputs": {
+            "parameters": {
+              "n": {
+                "runtimeValue": {
+                  "constant": 10000.0
+                }
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "stage-1"
+          }
+        },
+        "stage-2": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-stage-2"
+          },
+          "dependentTasks": [
+            "stage-1"
+          ],
+          "inputs": {
+            "artifacts": {
+              "values": {
+                "taskOutputArtifact": {
+                  "outputArtifactKey": "values",
+                  "producerTask": "stage-1"
+                }
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "stage-2"
+          }
+        }
+      }
+    },
+    "inputDefinitions": {
+      "parameters": {
+        "project_id": {
+          "defaultValue": "42",
+          "isOptional": true,
+          "parameterType": "STRING"
+        }
+      }
+    }
+  },
+  "schemaVersion": "2.1.0",
+  "sdkVersion": "kfp-2.4.0"
+}
