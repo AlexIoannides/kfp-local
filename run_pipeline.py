@@ -1,5 +1,6 @@
 """Demonstrating how KFP can be used to work with compied pipelines."""
 import json
+import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Protocol
@@ -47,15 +48,15 @@ def load_pipeline_spec(compiled_pipeline_file: str) -> PipelineSpec:
     return pipeline_spec
 
 
-def get_stage_cmd_args(name: str, pipeline: PipelineSpec) -> tuple[list[str], list[str]]:
-    """Return the requested stage execution commands."""
+def get_task_cmd_args(name: str, pipeline: PipelineSpec) -> tuple[list[str], list[str]]:
+    """Return the requested task execution commands."""
     executor_name = f"exec-{name}"
     executors = pipeline.deployment_spec.fields["executors"].struct_value.fields
     if executor_name not in executors:
         raise ValueError(f"{name} not found in pipeline")
-    stage = executors[f"exec-{name}"].struct_value.fields["container"].struct_value.fields
-    cmd = [cmd for cmd in stage["command"].list_value]
-    args = [arg for arg in stage["args"].list_value]
+    task = executors[f"exec-{name}"].struct_value.fields["container"].struct_value.fields
+    cmd = [cmd for cmd in task["command"].list_value]
+    args = [arg for arg in task["args"].list_value]
     return cmd, args
 
 
@@ -78,17 +79,17 @@ def _extract_value(param_obj: _HasTypeValueAttr, param_type: int) -> _ParamType:
 
 
 def _get_param_value_from_metadata_file(
-        stage_name: str, output_key: str = "Output"
+        task_name: str, output_key: str = "Output"
     ) -> _ParamType:
     """Get output parameter from output_metadata.json file."""
-    output_metadata_file = Path.cwd() / LOCAL_FOLDER / stage_name / OUTPUT_METADATA_FILE
+    output_metadata_file = Path.cwd() / LOCAL_FOLDER / task_name / OUTPUT_METADATA_FILE
     if not output_metadata_file.exists():
         raise FileNotFoundError(f"couldn't find {output_metadata_file}")
     output_metadata = json.loads(output_metadata_file.read_text())
     try:
         output_value = output_metadata["parameterValues"][output_key]
     except KeyError:
-        raise RuntimeError(f"couldn't find parameter output for stage={stage_name}")
+        raise RuntimeError(f"couldn't find parameter output for task={task_name}")
     return output_value
 
 
@@ -105,21 +106,21 @@ def _get_param_value_from_pipeline_inputs(
 
 
 def _get_param_value(
-        pipeline: PipelineSpec, stage_name: str, param_name: str
+        pipeline: PipelineSpec, task_name: str, param_name: str
     ) -> _ParamType:
-    """Find parameter value for a stage."""
+    """Find parameter value for a task."""
     try:
-        component_name = f"comp-{stage_name}"
+        component_name = f"comp-{task_name}"
         component = pipeline.components[component_name]
-        task = pipeline.root.dag.tasks[stage_name]
+        task = pipeline.root.dag.tasks[task_name]
     except KeyError:
-        RuntimeError(f"{stage_name} is not a stage in the pipeline specification")
+        RuntimeError(f"{task_name} is not a task in the pipeline specification")
 
     try:
         param_type = component.input_definitions.parameters[param_name].parameter_type
         param = task.inputs.parameters[param_name]
     except KeyError:
-        raise RuntimeError(f"Cannot find param={param_name} in stage={stage_name}")
+        raise RuntimeError(f"Cannot find param={param_name} in task={task_name}")
 
     if str(param.runtime_value):
         return _extract_value(param.runtime_value.constant, param_type)
@@ -136,11 +137,11 @@ def _get_param_value(
         if str(component.input_definitions.parameters[param_name].default_value):
             param = component.input_definitions.parameters[param_name]
             return _extract_value(param.default_value, param_type)
-        raise RuntimeError(f"Unsupported parameter type in stage {stage_name}")
+        raise RuntimeError(f"Unsupported parameter type in task {task_name}")
 
 
-def get_func_args(pipeline: PipelineSpec, stage_name: str) -> str:
-    component_name = f"comp-{stage_name}"
+def get_func_args(pipeline: PipelineSpec, task_name: str) -> str:
+    component_name = f"comp-{task_name}"
     component = pipeline.components[component_name]
     input_parameters = [param for param in component.input_definitions.parameters]
     input_artifacts = [artifact for artifact in component.input_definitions.artifacts]
@@ -148,7 +149,7 @@ def get_func_args(pipeline: PipelineSpec, stage_name: str) -> str:
 
     input_params_spec: dict[str, Any] = {}
     for param in input_parameters:
-        input_params_spec[param] = _get_param_value(pipeline, stage_name, param)
+        input_params_spec[param] = _get_param_value(pipeline, task_name, param)
 
     input_artifacts_spec: dict[str, Any] = {}
     for artifact in input_artifacts:
@@ -169,7 +170,7 @@ def get_func_args(pipeline: PipelineSpec, stage_name: str) -> str:
         },
         "outputs": {
             "artifacts": output_artifacts_spec,
-            "outputFile": f"{LOCAL_FOLDER}/{stage_name}/output_metadata.json"
+            "outputFile": f"{LOCAL_FOLDER}/{task_name}/output_metadata.json"
         }
     }
     return json.dumps(executor_args)
@@ -186,11 +187,12 @@ def run_pipeline(
             " schema_version={SCHEMA_VERSION} "
         )
         raise RuntimeError(msg)
+    shutil.rmtree(LOCAL_FOLDER, ignore_errors=True)
     for task in pipeline.root.dag.tasks:
-        cmd, args = get_stage_cmd_args(task, pipeline)
+        cmd, args = get_task_cmd_args(task, pipeline)
         args[1] = get_func_args(pipeline, task)
         if use_nox:
-            subprocess.run(["nox", "-s", "run_stage", "--", *(cmd + args)])
+            subprocess.run(["nox", "-s", "run_pipeline_task", "--", *(cmd + args)])
         else:
             subprocess.run(cmd + args)
 
