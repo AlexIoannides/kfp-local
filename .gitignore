@@ -2,7 +2,7 @@
 TODO.md
 .vscode
 .ruff_cache
-object-storage/*
+object-storage-bucket/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

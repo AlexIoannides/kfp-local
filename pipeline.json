@@ -1,7 +1,29 @@
 {
   "components": {
     "comp-stage-0": {
-      "executorLabel": "exec-stage-0"
+      "executorLabel": "exec-stage-0",
+      "inputDefinitions": {
+        "parameters": {
+          "config": {
+            "parameterType": "STRUCT"
+          },
+          "messages": {
+            "parameterType": "LIST"
+          },
+          "run_id": {
+            "defaultValue": "42",
+            "isOptional": true,
+            "parameterType": "STRING"
+          }
+        }
+      },
+      "outputDefinitions": {
+        "parameters": {
+          "Output": {
+            "parameterType": "NUMBER_INTEGER"
+          }
+        }
+      }
     },
     "comp-stage-1": {
       "executorLabel": "exec-stage-1",
@@ -9,12 +31,15 @@
         "parameters": {
           "n": {
             "parameterType": "NUMBER_INTEGER"
+          },
+          "seed": {
+            "parameterType": "NUMBER_INTEGER"
           }
         }
       },
       "outputDefinitions": {
         "artifacts": {
-          "values": {
+          "data": {
             "artifactType": {
               "schemaTitle": "system.Dataset",
               "schemaVersion": "0.0.1"
@@ -27,11 +52,28 @@
       "executorLabel": "exec-stage-2",
       "inputDefinitions": {
         "artifacts": {
-          "values": {
+          "data": {
             "artifactType": {
               "schemaTitle": "system.Dataset",
               "schemaVersion": "0.0.1"
             }
+          }
+        }
+      },
+      "outputDefinitions": {
+        "parameters": {
+          "Output": {
+            "parameterType": "STRUCT"
+          }
+        }
+      }
+    },
+    "comp-stage-3": {
+      "executorLabel": "exec-stage-3",
+      "inputDefinitions": {
+        "parameters": {
+          "aggs": {
+            "parameterType": "STRUCT"
           }
         }
       }
@@ -55,7 +97,7 @@
             "sh",
             "-ec",
             "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
-            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_0() -> None:\n    \"\"\"Stage 0.\"\"\"\n    from numpy.random import standard_normal\n\n    x = standard_normal(100)\n    print(x.mean())\n\n"
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_0(config: Dict[str, Any], messages: List[str], run_id: str = \"42\") -> int:\n    \"\"\"Stage 0.\"\"\"\n    from numpy import random\n\n    print(f\"RUN_ID = {run_id}\")\n    for n, msg in enumerate(messages):\n        print(f\"|- message-{n}: {msg}\")\n    return random.randint(config[\"seed_low\"], config[\"seed_high\"])\n\n"
           ],
           "image": "python:3.9"
         }
@@ -75,7 +117,7 @@
             "sh",
             "-ec",
             "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
-            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_1(n: int, values: dsl.Output[dsl.Dataset]) -> None:\n    \"\"\"Stage 1.\"\"\"\n    from numpy.random import standard_normal\n\n    x = standard_normal(n)\n    with open(values.path, \"w\") as file:\n        x.tofile(file)\n\n"
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_1(n: int, data: dsl.Output[dsl.Dataset], seed: int) -> None:\n    \"\"\"Stage 1.\"\"\"\n    from numpy import random\n\n    random.seed(seed)\n    x = random.standard_normal(n)\n    with open(data.path, \"w\") as file:\n        x.tofile(file)\n\n"
           ],
           "image": "python:3.9"
         }
@@ -95,7 +137,27 @@
             "sh",
             "-ec",
             "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
-            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_2(values: dsl.Input[dsl.Dataset]) -> None:\n    \"\"\"Stage 2.\"\"\"\n    import numpy as np\n\n    x = np.fromfile(values.path)\n    average = x.mean()\n    print(average)\n\n"
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_2(data: dsl.Input[dsl.Dataset]) -> Dict[str, Any]:\n    \"\"\"Stage 2.\"\"\"\n    import numpy as np\n\n    x = np.fromfile(data.path)\n    return {\"average\": x.mean(), \"std\": x.std()}\n\n"
+          ],
+          "image": "python:3.9"
+        }
+      },
+      "exec-stage-3": {
+        "container": {
+          "args": [
+            "--executor_input",
+            "{{$}}",
+            "--function_to_execute",
+            "stage_3"
+          ],
+          "command": [
+            "sh",
+            "-c",
+            "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip || python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1 python3 -m pip install --quiet --no-warn-script-location 'kfp==2.4.0' '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"'  &&  python3 -m pip install --quiet --no-warn-script-location 'numpy' && \"$0\" \"$@\"\n",
+            "sh",
+            "-ec",
+            "program_path=$(mktemp -d)\n\nprintf \"%s\" \"$0\" > \"$program_path/ephemeral_component.py\"\n_KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         \"$program_path/ephemeral_component.py\"                         \"$@\"\n",
+            "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import *\n\ndef stage_3(aggs: Dict[str, float]) -> None:\n    \"\"\"Stage 3.\"\"\"\n    print(f\"x_average={aggs['average']}\")\n    print(f\"x_std={aggs['std']}\")\n\n"
           ],
           "image": "python:3.9"
         }
@@ -116,6 +178,19 @@
           "componentRef": {
             "name": "comp-stage-0"
           },
+          "inputs": {
+            "parameters": {
+              "config": {
+                "componentInputParameter": "config"
+              },
+              "messages": {
+                "componentInputParameter": "messages"
+              },
+              "run_id": {
+                "componentInputParameter": "run_id"
+              }
+            }
+          },
           "taskInfo": {
             "name": "stage-0"
           }
@@ -127,11 +202,20 @@
           "componentRef": {
             "name": "comp-stage-1"
           },
+          "dependentTasks": [
+            "stage-0"
+          ],
           "inputs": {
             "parameters": {
               "n": {
                 "runtimeValue": {
-                  "constant": 10000.0
+                  "constant": 1000.0
+                }
+              },
+              "seed": {
+                "taskOutputParameter": {
+                  "outputParameterKey": "Output",
+                  "producerTask": "stage-0"
                 }
               }
             }
@@ -152,9 +236,9 @@
           ],
           "inputs": {
             "artifacts": {
-              "values": {
+              "data": {
                 "taskOutputArtifact": {
-                  "outputArtifactKey": "values",
+                  "outputArtifactKey": "data",
                   "producerTask": "stage-1"
                 }
               }
@@ -163,13 +247,53 @@
           "taskInfo": {
             "name": "stage-2"
           }
+        },
+        "stage-3": {
+          "cachingOptions": {
+            "enableCache": true
+          },
+          "componentRef": {
+            "name": "comp-stage-3"
+          },
+          "dependentTasks": [
+            "stage-2"
+          ],
+          "inputs": {
+            "parameters": {
+              "aggs": {
+                "taskOutputParameter": {
+                  "outputParameterKey": "Output",
+                  "producerTask": "stage-2"
+                }
+              }
+            }
+          },
+          "taskInfo": {
+            "name": "stage-3"
+          }
         }
       }
     },
     "inputDefinitions": {
       "parameters": {
-        "project_id": {
-          "defaultValue": "42",
+        "config": {
+          "defaultValue": {
+            "seed_high": 42.0,
+            "seed_low": 0.0
+          },
+          "isOptional": true,
+          "parameterType": "STRUCT"
+        },
+        "messages": {
+          "defaultValue": [
+            "foo",
+            "bar"
+          ],
+          "isOptional": true,
+          "parameterType": "LIST"
+        },
+        "run_id": {
+          "defaultValue": "001",
           "isOptional": true,
           "parameterType": "STRING"
         }
