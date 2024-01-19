@@ -55,8 +55,8 @@ def test_load_pipeline_spec_raises_error_if_config_file_invalid():
 
 
 def test_get_task_cmd_args_return_the_right_args(
-        pipeline_spec: PipelineSpec, pipeline_spec_dict: dict[str, Any]
-    ):
+    pipeline_spec: PipelineSpec, pipeline_spec_dict: dict[str, Any]
+):
     stage = "stage-0"
     stage_spec = pipeline_spec_dict["executors"][f"exec-{stage}"]["container"]
     expected_cmd = stage_spec["command"]
@@ -72,16 +72,15 @@ def test_get_task_cmd_args_raises_error_if_task_not_found(pipeline_spec: Pipelin
 
 
 @mark.parametrize(
-        ["param_type", "expected_type"],
-        [
-            (NUMBER_INTEGER, int),
-            (NUMBER_DOUBLE, float),
-            (BOOLEAN, bool),
-            (STRING, str),
-            (LIST, list),
-            (STRUCT, dict),
-
-        ]
+    ["param_type", "expected_type"],
+    [
+        (NUMBER_INTEGER, int),
+        (NUMBER_DOUBLE, float),
+        (BOOLEAN, bool),
+        (STRING, str),
+        (LIST, list),
+        (STRUCT, dict),
+    ],
 )
 def test_extract_value(param_type, expected_type):
     class TestParamObj:
@@ -89,7 +88,8 @@ def test_extract_value(param_type, expected_type):
         bool_value = False
         string_value = "foo"
         list_value = (1, 2, 3)
-        struct_value = {"a":1, "b": 2}
+        struct_value = {"a": 1, "b": 2}
+
     assert type(_extract_value(TestParamObj(), param_type)) == expected_type
 
 
@@ -100,26 +100,26 @@ def test_get_param_value_from_metadata_file_returns_correct_values():
 
 
 def test_get_param_value_from_metadata_raises_error_when_file_not_found():
-        with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="DOES_NOT_EXIST"):
-            with raises(FileNotFoundError, match="couldn't find"):
-                _get_param_value_from_metadata_file("stage-0")
+    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="DOES_NOT_EXIST"):
+        with raises(FileNotFoundError, match="couldn't find"):
+            _get_param_value_from_metadata_file("stage-0")
 
 
 def test_get_param_value_from_metadata_raises_error_key_not_found():
-        with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
-            with raises(RuntimeError, match="couldn't find"):
-                _get_param_value_from_metadata_file("stage-0", output_key="DONT_EXIST")
+    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
+        with raises(RuntimeError, match="couldn't find"):
+            _get_param_value_from_metadata_file("stage-0", output_key="DONT_EXIST")
 
 
 def test_get_param_value_from_pipeline_inputs_raises_error_if_param_not_found(
-        pipeline_spec: PipelineSpec
+    pipeline_spec: PipelineSpec,
 ):
     with raises(RuntimeError, match="couldn't find parameter"):
         _get_param_value_from_pipeline_inputs(pipeline_spec, "DOES_NOT_EXIST")
 
 
 def test_get_param_value_raises_error_if_task_not_in_pipeline_spec(
-        pipeline_spec: PipelineSpec
+    pipeline_spec: PipelineSpec,
 ):
     bad_task_name = "foo"
     with raises(RuntimeError, match=f"{bad_task_name} is not a task in the pipeline"):
@@ -127,7 +127,7 @@ def test_get_param_value_raises_error_if_task_not_in_pipeline_spec(
 
 
 def test_get_param_value_raises_error_if_param_not_in_task_spec(
-        pipeline_spec: PipelineSpec
+    pipeline_spec: PipelineSpec,
 ):
     bad_param_name = "foo"
     with raises(RuntimeError, match=f"Cannot find param={bad_param_name}"):
@@ -143,52 +143,52 @@ def test_get_param_value_raises_finds_parameters(pipeline_spec: PipelineSpec):
 
 
 def test_get_func_args(pipeline_spec: PipelineSpec):
-    s0_args_expected =  {
-        'inputs': {
-            'artifacts': {},
-            'parameterValues': {
-                'config': {'seed_high': 42.0, 'seed_low': 0.0},
-                'messages': ['foo', 'bar'],
-                'run_id': '001'}
+    s0_args_expected = {
+        "inputs": {
+            "artifacts": {},
+            "parameterValues": {
+                "config": {"seed_high": 42.0, "seed_low": 0.0},
+                "messages": ["foo", "bar"],
+                "run_id": "001",
+            },
         },
-        'outputs': {
-            'artifacts': {},
-            'outputFile': 'object-storage-bucket/stage-0/output_metadata.json'
-        }
+        "outputs": {
+            "artifacts": {},
+            "outputFile": "object-storage-bucket/stage-0/output_metadata.json",
+        },
     }
     s0_args = json.loads(get_func_args(pipeline_spec, "stage-0"))
     assert s0_args == s0_args_expected
 
     s1_args_expected = {
-        'inputs': {
-            'parameterValues': {'n': 1000, 'seed': 42}, 'artifacts': {}},
-            'outputs': {
-                'artifacts': {
-                    'data': {
-                        'artifacts': [{'name': 'data', 'uri': 'gs://tests/resources/data'}]
-                    }
+        "inputs": {"parameterValues": {"n": 1000, "seed": 42}, "artifacts": {}},
+        "outputs": {
+            "artifacts": {
+                "data": {
+                    "artifacts": [{"name": "data", "uri": "gs://tests/resources/data"}]
+                }
             },
-            'outputFile': 'tests/resources/stage-1/output_metadata.json'
-        }
+            "outputFile": "tests/resources/stage-1/output_metadata.json",
+        },
     }
     with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
         s1_args = json.loads(get_func_args(pipeline_spec, "stage-1"))
     assert s1_args == s1_args_expected
 
     s2_args_expected = {
-        'inputs': {
-            'parameterValues': {},
-            'artifacts': {
-                'data': {
-                    'name': 'data',
-                    'artifacts': [{'uri': 'gs://tests/resources/data'}]
+        "inputs": {
+            "parameterValues": {},
+            "artifacts": {
+                "data": {
+                    "name": "data",
+                    "artifacts": [{"uri": "gs://tests/resources/data"}],
                 }
-            }
+            },
         },
-        'outputs': {
-            'artifacts': {},
-            'outputFile': 'tests/resources/stage-2/output_metadata.json'
-        }
+        "outputs": {
+            "artifacts": {},
+            "outputFile": "tests/resources/stage-2/output_metadata.json",
+        },
     }
     with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
         s2_args = json.loads(get_func_args(pipeline_spec, "stage-2"))

@@ -42,7 +42,9 @@ def load_pipeline_spec(compiled_pipeline_file: str) -> PipelineSpec:
     if not pipeline_file.exists():
         raise FileNotFoundError(f"Can't find {pipeline_file}")
     try:
-        component_dict = structures.load_documents_from_yaml(pipeline_file.read_text())[0]  # noqa
+        component_dict = structures.load_documents_from_yaml(pipeline_file.read_text())[
+            0
+        ]  # noqa
         pipeline_spec = ParseDict(component_dict, PipelineSpec())
     except Exception as e:
         raise RuntimeError(f"{pipeline_file} is not a valid `PipelineSpec` - {e}")
@@ -178,8 +180,8 @@ def get_func_args(pipeline: PipelineSpec, task_name: str) -> str:
 
 
 def run_pipeline(
-        dag: list[str], compiled_pipeline: str = "pipeline.json", use_nox: bool = False
-    ) -> None:
+    dag: list[str], compiled_pipeline: str = "pipeline.json", use_nox: bool = False
+) -> None:
     """Run a compiled pipeline with default parameter values."""
     pipeline = load_pipeline_spec(compiled_pipeline)
     if pipeline.schema_version != SCHEMA_VERSION:
@@ -200,13 +202,14 @@ def run_pipeline(
             if use_nox:
                 noxfile_path = files("kfp_local") / "kfp_noxfile.py"
                 subprocess.run(
-                    ["nox",
-                    "-s",
-                    "run_pipeline_task",
-                    "-f",
-                    noxfile_path,
-                    "--",
-                    *(cmd + args)
+                    [
+                        "nox",
+                        "-s",
+                        "run_pipeline_task",
+                        "-f",
+                        noxfile_path,
+                        "--",
+                        *(cmd + args),
                     ]
                 )
             else:
@@ -216,6 +219,7 @@ def run_pipeline(
                 subprocess.run(cmd + args)
         except Exception as e:
             raise RuntimeError(f"task={task} failed to execute") from e
+
 
 if __name__ == "__main__":
     run_pipeline(["stage-0", "stage-1"], "tests/resources/pipeline.json")
