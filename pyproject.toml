@@ -1,6 +1,6 @@
 [project]
 name = "kfp-local"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Run Kubeflow Pipelines locally."
 readme = "README.md"
 authors = [
@@ -26,8 +26,11 @@ dev = [
 ]
 
 [project.urls]
-"Homepage" = "TBC"
-"Bug Tracker" = "TBC"
+"Homepage" = "https://github.com/AlexIoannides/aitoolz"
+"Bug Tracker" = "https://github.com/AlexIoannides/aitoolz/issues"
+
+[project.scripts]
+kfp = "kfp_local.pipelines:_cli"
 
 [build-system]
 requires = ["setuptools>=68.0"]

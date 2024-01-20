@@ -1,8 +1,10 @@
 """Demonstrating how KFP can be used to work with compiled pipelines."""
+import argparse
 import json
 import os
 import shutil
 import subprocess
+import sys
 from importlib.resources import files
 from pathlib import Path
 from typing import Any, Protocol, cast
@@ -143,7 +145,7 @@ def _get_param_value(
         raise RuntimeError(f"Unsupported parameter type in task {task_name}")
 
 
-def get_func_args(pipeline: PipelineSpec, task_name: str) -> str:
+def _get_func_args(pipeline: PipelineSpec, task_name: str) -> str:
     """Extract step args from pipeline config."""
     component_name = f"comp-{task_name}"
     component = pipeline.components[component_name]
@@ -199,7 +201,7 @@ def run_pipeline(
     for task in dag:
         try:
             cmd, args = get_task_cmd_args(task, pipeline)
-            args[1] = get_func_args(pipeline, task)
+            args[1] = _get_func_args(pipeline, task)
             if use_nox:
                 noxfile_path = files("kfp_local") / "kfp_noxfile.py"
                 noxfile_path = cast(Path, noxfile_path)  # stop mypy error (likely bug)
@@ -225,9 +227,39 @@ def run_pipeline(
             raise RuntimeError(f"task={task} failed to execute - {e}")
 
 
-if __name__ == "__main__":
-    run_pipeline(
-        ["stage-0", "stage-1", "stage-2", "stage-3"],
-        "tests/resources/pipeline.json",
-        use_nox=True,
+def _cli() -> None:
+    """Entrypoint for use on the CLI."""
+    parser = argparse.ArgumentParser(
+        description="Run Kubeflow Pipeline stages locally."
     )
+    parser.add_argument(
+        "tasks",
+        nargs="+",
+        type=str,
+        help="task to run (in order)",
+    )
+    parser.add_argument(
+        "--pipeline",
+        type=str,
+        required=True,
+        help="path to compiled pipeline in JSON format",
+    )
+    parser.add_argument(
+        "--nox",
+        action="store_true",
+        default=False,
+        required=False,
+        help="use Nox for environment isolation",
+    )
+    args = parser.parse_args()
+    try:
+        run_pipeline(args.tasks, args.pipeline, use_nox=args.nox)
+        sys.exit(0)
+    except Exception as e:
+        e_msg = str(e)
+        print(f"ERROR: {e_msg[:1].lower() + e_msg[1:]}")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    _cli()

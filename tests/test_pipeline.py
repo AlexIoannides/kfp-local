@@ -2,6 +2,7 @@
 import json
 import shutil
 from pathlib import Path
+from subprocess import CalledProcessError, run
 from typing import Any
 from unittest.mock import patch
 
@@ -16,13 +17,13 @@ from kfp.dsl.types.type_utils import (
 from kfp.pipeline_spec.pipeline_spec_pb2 import PipelineSpec
 from pytest import fixture, mark, raises
 
-from kfp_local.run_pipeline import (
+from kfp_local.pipelines import (
     LOCAL_FOLDER,
     _extract_value,
+    _get_func_args,
     _get_param_value,
     _get_param_value_from_metadata_file,
     _get_param_value_from_pipeline_inputs,
-    get_func_args,
     get_task_cmd_args,
     load_pipeline_spec,
     run_pipeline,
@@ -96,19 +97,19 @@ def test_extract_value(param_type, expected_type):
 
 
 def test_get_param_value_from_metadata_file_returns_correct_values():
-    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
+    with patch("kfp_local.pipelines.LOCAL_FOLDER", new="tests/resources"):
         param = _get_param_value_from_metadata_file("stage-0")
     assert param == 42
 
 
 def test_get_param_value_from_metadata_raises_error_when_file_not_found():
-    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="DOES_NOT_EXIST"):
+    with patch("kfp_local.pipelines.LOCAL_FOLDER", new="DOES_NOT_EXIST"):
         with raises(FileNotFoundError, match="couldn't find"):
             _get_param_value_from_metadata_file("stage-0")
 
 
 def test_get_param_value_from_metadata_raises_error_key_not_found():
-    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
+    with patch("kfp_local.pipelines.LOCAL_FOLDER", new="tests/resources"):
         with raises(RuntimeError, match="couldn't find"):
             _get_param_value_from_metadata_file("stage-0", output_key="DONT_EXIST")
 
@@ -140,11 +141,11 @@ def test_get_param_value_raises_finds_parameters(pipeline_spec: PipelineSpec):
     assert _get_param_value(pipeline_spec, "stage-0", "run_id") == "001"
     assert _get_param_value(pipeline_spec, "stage-1", "n") == 1000
 
-    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
+    with patch("kfp_local.pipelines.LOCAL_FOLDER", new="tests/resources"):
         assert _get_param_value(pipeline_spec, "stage-1", "seed") == 42
 
 
-def test_get_func_args(pipeline_spec: PipelineSpec):
+def test__get_func_args(pipeline_spec: PipelineSpec):
     s0_args_expected = {
         "inputs": {
             "artifacts": {},
@@ -159,7 +160,7 @@ def test_get_func_args(pipeline_spec: PipelineSpec):
             "outputFile": "object-storage-bucket/stage-0/output_metadata.json",
         },
     }
-    s0_args = json.loads(get_func_args(pipeline_spec, "stage-0"))
+    s0_args = json.loads(_get_func_args(pipeline_spec, "stage-0"))
     assert s0_args == s0_args_expected
 
     s1_args_expected = {
@@ -173,8 +174,8 @@ def test_get_func_args(pipeline_spec: PipelineSpec):
             "outputFile": "tests/resources/stage-1/output_metadata.json",
         },
     }
-    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
-        s1_args = json.loads(get_func_args(pipeline_spec, "stage-1"))
+    with patch("kfp_local.pipelines.LOCAL_FOLDER", new="tests/resources"):
+        s1_args = json.loads(_get_func_args(pipeline_spec, "stage-1"))
     assert s1_args == s1_args_expected
 
     s2_args_expected = {
@@ -192,13 +193,13 @@ def test_get_func_args(pipeline_spec: PipelineSpec):
             "outputFile": "tests/resources/stage-2/output_metadata.json",
         },
     }
-    with patch("kfp_local.run_pipeline.LOCAL_FOLDER", new="tests/resources"):
-        s2_args = json.loads(get_func_args(pipeline_spec, "stage-2"))
+    with patch("kfp_local.pipelines.LOCAL_FOLDER", new="tests/resources"):
+        s2_args = json.loads(_get_func_args(pipeline_spec, "stage-2"))
     assert s2_args == s2_args_expected
 
 
 def test_run_pipeline_raises_error_if_pipeline_spec_schema_version_mismatch():
-    with patch("kfp_local.run_pipeline.SCHEMA_VERSION", new="3.1.0"):
+    with patch("kfp_local.pipelines.SCHEMA_VERSION", new="3.1.0"):
         with raises(RuntimeError, match="schema_version=2.1.0 not supported"):
             run_pipeline(["some-stage"], TEST_CONFIG_FILE)
 
@@ -209,8 +210,8 @@ def test_run_pipeline_raises_error_if_task_def_missing_from_pipeline_spec():
 
 
 def test_run_pipeline_raises_error_if_task_execution_fails():
-    with patch("kfp_local.run_pipeline.get_func_args") as mock_get_func_args:
-        mock_get_func_args.side_effect = Exception()
+    with patch("kfp_local.pipelines._get_func_args") as mock__get_func_args:
+        mock__get_func_args.side_effect = Exception()
         with raises(RuntimeError, match="task=stage-0 failed to execute"):
             run_pipeline(["stage-0"], TEST_CONFIG_FILE)
 
@@ -237,3 +238,28 @@ def test_run_pipeline_end_to_end_with_nox():
         assert False
     finally:
         shutil.rmtree(LOCAL_FOLDER, ignore_errors=True)
+
+
+def test_cli():
+    try:
+        run(["kfp", "stage-0", "stage-1", "--pipeline", TEST_CONFIG_FILE], check=True)
+        assert True
+    except CalledProcessError:
+        assert False
+
+    try:
+        run(
+            ["kfp", "stage-0", "stage-1", "--pipeline", TEST_CONFIG_FILE, "--nox"],
+            check=True,
+        )
+        assert True
+    except CalledProcessError:
+        assert False
+
+
+def test_cli_command_handles_exceptions():
+    out = run(["kfp", "stage-0", "--pipeline", "foo"], capture_output=True, text=True)
+    if out.returncode != 0 and "ERROR:" in out.stdout:
+        assert True
+    else:
+        assert False
