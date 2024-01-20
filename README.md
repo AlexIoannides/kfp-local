@@ -2,13 +2,19 @@
 
 A local executor for Kubeflow pipelines tasks composed entirely out of custom Python components.
 
-## Setup
+## Installing
+
+The kfp-local package targets MacOS and Linux and can be installed using,
 
 ```text
 python -m pip install git+https://github.com/AlexIoannides/kfp-local.git@main
 ```
 
-## Compile Pipeline
+### Windows Support
+
+There is currently no support for running kfp-local on Windows.
+
+## Compile a Pipeline
 
 For example, as defined in `tests/resources/make_pipeline.py`,
 
