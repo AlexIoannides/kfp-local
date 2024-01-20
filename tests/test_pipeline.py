@@ -242,14 +242,14 @@ def test_run_pipeline_end_to_end_with_nox():
 
 def test_cli():
     try:
-        run(["kfp", "stage-0", "stage-1", "--pipeline", TEST_CONFIG_FILE], check=True)
+        run(["kfpl", "stage-0", "stage-1", "--pipeline", TEST_CONFIG_FILE], check=True)
         assert True
     except CalledProcessError:
         assert False
 
     try:
         run(
-            ["kfp", "stage-0", "stage-1", "--pipeline", TEST_CONFIG_FILE, "--nox"],
+            ["kfpl", "stage-0", "stage-1", "--pipeline", TEST_CONFIG_FILE, "--nox"],
             check=True,
         )
         assert True
@@ -258,7 +258,7 @@ def test_cli():
 
 
 def test_cli_command_handles_exceptions():
-    out = run(["kfp", "stage-0", "--pipeline", "foo"], capture_output=True, text=True)
+    out = run(["kfpl", "stage-0", "--pipeline", "foo"], capture_output=True, text=True)
     if out.returncode != 0 and "ERROR:" in out.stdout:
         assert True
     else:

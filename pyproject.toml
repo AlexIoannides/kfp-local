@@ -30,7 +30,7 @@ dev = [
 "Bug Tracker" = "https://github.com/AlexIoannides/aitoolz/issues"
 
 [project.scripts]
-kfp = "kfp_local.pipelines:_cli"
+kfpl = "kfp_local.pipelines:_cli"
 
 [build-system]
 requires = ["setuptools>=68.0"]

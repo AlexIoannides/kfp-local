@@ -185,7 +185,22 @@ def _get_func_args(pipeline: PipelineSpec, task_name: str) -> str:
 def run_pipeline(
     dag: list[str], compiled_pipeline: str = "pipeline.json", *, use_nox: bool = False
 ) -> None:
-    """Run a compiled pipeline with default parameter values."""
+    """Run a compiled pipeline with default parameter values.
+
+    Args:
+    ----
+        dag: List of tasks to run in serial (seperate tasks with a black space).
+        compiled_pipeline: Compiled Kubeflow pipeline in JSON format. Defaults to
+            "pipeline.json".
+        use_nox: Use Nox for executing stages in isolated virtual environments. Defaults
+            to False.
+
+    Raises:
+    ------
+        RuntimeError: If using an unsupported schema pipeline schema version.
+        RuntimeError: If task not found in compiled pipeline JSON.
+        RuntimeError: If task execution fails.
+    """
     pipeline = load_pipeline_spec(compiled_pipeline)
     if pipeline.schema_version != SCHEMA_VERSION:
         msg = (
