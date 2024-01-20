@@ -1,10 +1,11 @@
 """Demonstrating how KFP can be used to work with compiled pipelines."""
 import json
+import os
 import shutil
 import subprocess
 from importlib.resources import files
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from google.protobuf.json_format import ParseDict
 from kfp.dsl import structures
@@ -180,7 +181,7 @@ def get_func_args(pipeline: PipelineSpec, task_name: str) -> str:
 
 
 def run_pipeline(
-    dag: list[str], compiled_pipeline: str = "pipeline.json", use_nox: bool = False
+    dag: list[str], compiled_pipeline: str = "pipeline.json", *, use_nox: bool = False
 ) -> None:
     """Run a compiled pipeline with default parameter values."""
     pipeline = load_pipeline_spec(compiled_pipeline)
@@ -201,6 +202,7 @@ def run_pipeline(
             args[1] = get_func_args(pipeline, task)
             if use_nox:
                 noxfile_path = files("kfp_local") / "kfp_noxfile.py"
+                noxfile_path = cast(Path, noxfile_path)  # stop mypy error (likely bug)
                 subprocess.run(
                     [
                         "nox",
@@ -208,18 +210,24 @@ def run_pipeline(
                         "run_pipeline_task",
                         "-f",
                         noxfile_path,
+                        "--envdir",
+                        f"{os.getcwd()}/.nox",
                         "--",
                         *(cmd + args),
                     ]
                 )
             else:
                 kfp_module = files("kfp.dsl.types") / "artifact_types.py"
-                subprocess.run(["sed", "-i", r"s/\/gcs\///", kfp_module])
-                breakpoint()
+                kfp_module = cast(Path, kfp_module)  # stop mypy error (likely bug)
+                subprocess.run(["sed", "-i", ".bak", r"s/\/gcs\///", kfp_module])
                 subprocess.run(cmd + args)
         except Exception as e:
-            raise RuntimeError(f"task={task} failed to execute") from e
+            raise RuntimeError(f"task={task} failed to execute - {e}")
 
 
 if __name__ == "__main__":
-    run_pipeline(["stage-0", "stage-1"], "tests/resources/pipeline.json")
+    run_pipeline(
+        ["stage-0", "stage-1", "stage-2", "stage-3"],
+        "tests/resources/pipeline.json",
+        use_nox=True,
+    )

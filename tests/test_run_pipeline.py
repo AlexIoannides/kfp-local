@@ -1,5 +1,6 @@
 """Basic tests for run_pipeline module."""
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -16,6 +17,7 @@ from kfp.pipeline_spec.pipeline_spec_pb2 import PipelineSpec
 from pytest import fixture, mark, raises
 
 from kfp_local.run_pipeline import (
+    LOCAL_FOLDER,
     _extract_value,
     _get_param_value,
     _get_param_value_from_metadata_file,
@@ -198,23 +200,40 @@ def test_get_func_args(pipeline_spec: PipelineSpec):
 def test_run_pipeline_raises_error_if_pipeline_spec_schema_version_mismatch():
     with patch("kfp_local.run_pipeline.SCHEMA_VERSION", new="3.1.0"):
         with raises(RuntimeError, match="schema_version=2.1.0 not supported"):
-            run_pipeline(["some-stage"], "tests/resources/pipeline.json")
+            run_pipeline(["some-stage"], TEST_CONFIG_FILE)
 
 
 def test_run_pipeline_raises_error_if_task_def_missing_from_pipeline_spec():
     with raises(RuntimeError, match="missing task defs in pipeline spec: some-stage"):
-        run_pipeline(["some-stage"], "tests/resources/pipeline.json")
+        run_pipeline(["some-stage"], TEST_CONFIG_FILE)
 
 
 def test_run_pipeline_raises_error_if_task_execution_fails():
     with patch("kfp_local.run_pipeline.get_func_args") as mock_get_func_args:
         mock_get_func_args.side_effect = Exception()
         with raises(RuntimeError, match="task=stage-0 failed to execute"):
-            run_pipeline(["stage-0"], "tests/resources/pipeline.json")
+            run_pipeline(["stage-0"], TEST_CONFIG_FILE)
 
 
-# def test_run_pipeline_end_to_end():
-#     # dag = ["stage-0", "stage-1", "stage-2", "stage-3"]
-#     dag = ["stage-0", "stage-1"]
-#     run_pipeline(dag, "tests/resources/pipeline.json", use_nox=False)
-#     assert True
+def test_run_pipeline_end_to_end_with_dev_venv():
+    dag = ["stage-0", "stage-1", "stage-2", "stage-3"]
+    try:
+        run_pipeline(dag, TEST_CONFIG_FILE, use_nox=False)
+        final_stage_output = Path(LOCAL_FOLDER) / "stage-3" / "output_metadata.json"
+        assert final_stage_output.exists()
+    except Exception:
+        assert False
+    finally:
+        shutil.rmtree(LOCAL_FOLDER, ignore_errors=True)
+
+
+def test_run_pipeline_end_to_end_with_nox():
+    dag = ["stage-0", "stage-1", "stage-2", "stage-3"]
+    try:
+        run_pipeline(dag, TEST_CONFIG_FILE, use_nox=True)
+        final_stage_output = Path(LOCAL_FOLDER) / "stage-3" / "output_metadata.json"
+        assert final_stage_output.exists()
+    except Exception:
+        assert False
+    finally:
+        shutil.rmtree(LOCAL_FOLDER, ignore_errors=True)
