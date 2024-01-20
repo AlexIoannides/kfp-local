@@ -1,11 +1,43 @@
-"""Isolated KFP stage execution using Nox."""
+"""Developer task automation."""
+from __future__ import annotations
+
 import nox
 
+nox.options.sessions = [
+    "check_code_formatting",
+    "check_types",
+    "run_tests",
+]
 
-@nox.session()
-def run_pipeline_task(session: nox.Session):
-    """Run stage by passing command and args as nox posargs"""
-    session.install("kfp==2.4.0")
-    file_to_edit = ".nox/run_pipeline_task/lib/python3.10/site-packages/kfp/dsl/types/artifact_types.py"
-    session.run("sed", "-i", ".bak", "s/\/gcs\///", file_to_edit, external=True)
-    session.run(*session.posargs, external=True)
+PYTHON_VERSION = "3.10"
+
+
+@nox.session(python=PYTHON_VERSION)
+def run_tests(session: nox.Session):
+    """Run unit tests."""
+    session.install(".[dev]")
+    pytest_args = session.posargs if session.posargs else []
+    session.run("pytest", "-s", *pytest_args)
+
+
+@nox.session(python=PYTHON_VERSION, reuse_venv=True)
+def format_code(session: nox.Session):
+    """Lint code and re-format where necessary."""
+    session.install(".[dev]")
+    session.run("black", "--config=pyproject.toml", ".")
+    session.run("ruff", "check", ".", "--config=pyproject.toml", "--fix")
+
+
+@nox.session(python=PYTHON_VERSION, reuse_venv=True)
+def check_code_formatting(session: nox.Session):
+    """Check code for formatting errors."""
+    session.install(".[dev]")
+    session.run("black", "--config=pyproject.toml", "--check", ".")
+    session.run("ruff", "check", ".", "--config=pyproject.toml")
+
+
+@nox.session(python=PYTHON_VERSION, reuse_venv=True)
+def check_types(session: nox.Session):
+    """Run static type checking."""
+    session.install(".[dev]")
+    session.run("mypy", "src", "tests", "noxfile.py")
