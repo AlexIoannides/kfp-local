@@ -236,7 +236,7 @@ def run_pipeline(
             else:
                 kfp_module = files("kfp.dsl.types") / "artifact_types.py"
                 kfp_module = cast(Path, kfp_module)  # stop mypy error (likely bug)
-                subprocess.run(["sed", "-i", ".bak", r"s/\/gcs\///", kfp_module])
+                subprocess.run(["sed", "-i.bak", r"s/\/gcs\///", kfp_module])
                 subprocess.run(cmd + args)
         except Exception as e:
             raise RuntimeError(f"task={task} failed to execute - {e}")
