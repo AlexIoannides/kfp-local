@@ -1,29 +1,33 @@
 # Local Pipelines for Local People
 
-A local executor for Kubeflow pipelines componsed entirely out of custom Python components.
+A local executor for Kubeflow pipelines tasks composed entirely out of custom Python components.
 
 ## Setup
 
 ```text
-pip install -r requirements.txt
+python -m pip install git+https://github.com/AlexIoannides/kfp-local.git@main
 ```
 
 ## Compile Pipeline
 
-As defined in `make_pipeline.py`,
+For example, as defined in `tests/resources/make_pipeline.py`,
 
 ```text
-python make_pipeline.py
+python -m tests.make_pipeline
 ```
 
 This will produce a compiled pipeline contained in `pipeline.json`
 
-## Run Compiled Pipeline Locally
+## Run Tasks from Compiled Pipeline Locally
 
-To run the pipeline defined in `pipeline.json`,
+Pipelines can be executed either from the command line using the `kfpl` command, or via Python using the `kfp_local.pipeline.run_pipeline` function. See the docstring for information on the latter and the CLI help for the former (`kfpl --help`).
+
+### Example Pipeline Execution using Nox for Task Isolation
+
+To run stages from the pipeline defined in `pipeline.json` use the `kfpl` CLI - e.g.,
 
 ```text
-python run_pipeline.py
+kfpl stage-0 stage-1 stage-2 stage-3 --pipeline pipeline.json --nox
 ```
 
 This will use Nox for dependency isolation and print to stdout. The output should look like,
