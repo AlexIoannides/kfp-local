@@ -1,6 +1,4 @@
 """Compile a KubeFlow Pipeline to use for testing."""
-from typing import Any
-
 from kfp import compiler, dsl
 
 PIPELINE_ROOT_PATH = "gs://object-storage"
@@ -10,7 +8,7 @@ PIPELINE_ROOT_PATH = "gs://object-storage"
     packages_to_install=["numpy"],
     base_image="python:3.9",
 )
-def stage_0(config: dict[str, Any], messages: list[str], run_id: str = "42") -> int:
+def stage_0(config: dict, messages: list, run_id: str = "42") -> int:
     """Stage 0."""
     from numpy import random
 
@@ -38,7 +36,7 @@ def stage_1(n: int, data: dsl.Output[dsl.Dataset], seed: int) -> None:
     packages_to_install=["numpy"],
     base_image="python:3.9",
 )
-def stage_2(data: dsl.Input[dsl.Dataset]) -> dict[str, float]:
+def stage_2(data: dsl.Input[dsl.Dataset]) -> dict:
     """Stage 2."""
     import numpy as np
 
@@ -50,7 +48,7 @@ def stage_2(data: dsl.Input[dsl.Dataset]) -> dict[str, float]:
     packages_to_install=["numpy"],
     base_image="python:3.9",
 )
-def stage_3(aggs: dict[str, float]) -> None:
+def stage_3(aggs: dict) -> None:
     """Stage 3."""
     print(f"x_average={aggs['average']}")
     print(f"x_std={aggs['std']}")
@@ -59,7 +57,7 @@ def stage_3(aggs: dict[str, float]) -> None:
 @dsl.pipeline(name="foo_then_bar", pipeline_root=PIPELINE_ROOT_PATH)
 def pipeline(
     config: dict = {"seed_low": 0, "seed_high": 42},
-    messages: list[str] = ["foo", "bar"],
+    messages: list = ["foo", "bar"],
     run_id: str = "001",
 ) -> None:
     """Train and deploy pipeline definition."""

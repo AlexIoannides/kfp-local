@@ -12,7 +12,7 @@ nox.options.sessions = [
 PYTHON_VERSION = "3.10"
 
 
-@nox.session(python=PYTHON_VERSION, reuse_venv=True)
+@nox.session(python=PYTHON_VERSION)
 def run_tests(session: nox.Session):
     """Run unit tests."""
     session.install(".[dev]")
