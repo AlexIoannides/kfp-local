@@ -1,3 +1,9 @@
+**THIS PROJECT IS ARCHIVED**
+
+Following the Kubeflow project releasing [local execution features](https://www.kubeflow.org/docs/components/pipelines/v2/local-execution/) as part of Kubeflow Pipelines version 2.5.0.
+
+---
+
 # Local Pipelines for Local People
 
 A local executor for Kubeflow pipelines tasks composed entirely out of custom Python components.
